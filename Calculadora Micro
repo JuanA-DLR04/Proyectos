@@ -1,0 +1,133 @@
+using System;
+using System.Windows.Forms;
+
+namespace QuickCalc
+{
+    public partial class QuickCalculator : Form
+    {
+        private bool isFreshInput = true;
+        private double primaryOperand;
+        private double secondaryOperand;
+        private double calculationResult;
+        private string mathOperator;
+
+        public QuickCalculator()
+        {
+            InitializeComponent();
+        }
+
+        Operations.MathHandler operationHandler = new Operations.MathHandler();
+        Operations.Addition additionOp = new Operations.Addition();
+        Operations.Subtraction subtractionOp = new Operations.Subtraction();
+        Operations.Multiplication multiplicationOp = new Operations.Multiplication();
+        Operations.Division divisionOp = new Operations.Division();
+
+        private void UpdateDisplay(string input)
+        {
+            if (isFreshInput)
+            {
+                txtDisplay.Text = input;
+                isFreshInput = false;
+            }
+            else
+            {
+                txtDisplay.Text += input;
+            }
+        }
+
+        private void btnDigit0_Click(object sender, EventArgs e) => UpdateDisplay("0");
+        private void btnDigit1_Click(object sender, EventArgs e) => UpdateDisplay("1");
+        private void btnDigit2_Click(object sender, EventArgs e) => UpdateDisplay("2");
+        private void btnDigit3_Click(object sender, EventArgs e) => UpdateDisplay("3");
+        private void btnDigit4_Click(object sender, EventArgs e) => UpdateDisplay("4");
+        private void btnDigit5_Click(object sender, EventArgs e) => UpdateDisplay("5");
+        private void btnDigit6_Click(object sender, EventArgs e) => UpdateDisplay("6");
+        private void btnDigit7_Click(object sender, EventArgs e) => UpdateDisplay("7");
+        private void btnDigit8_Click(object sender, EventArgs e) => UpdateDisplay("8");
+        private void btnDigit9_Click(object sender, EventArgs e) => UpdateDisplay("9");
+
+        private void btnDecimalPoint_Click(object sender, EventArgs e)
+        {
+            if (!txtDisplay.Text.Contains("."))
+                txtDisplay.Text += ".";
+        }
+
+        private void SelectOperator(string selectedOperator)
+        {
+            mathOperator = selectedOperator;
+            primaryOperand = double.Parse(txtDisplay.Text);
+            txtHistory.Text += txtDisplay.Text + selectedOperator;
+            isFreshInput = true;
+        }
+
+        private void btnPlus_Click(object sender, EventArgs e) => SelectOperator("+");
+        private void btnMinus_Click(object sender, EventArgs e) => SelectOperator("-");
+        private void btnTimes_Click(object sender, EventArgs e) => SelectOperator("*");
+        private void btnDivide_Click(object sender, EventArgs e) => SelectOperator("/");
+
+        private void btnEquals_Click(object sender, EventArgs e)
+        {
+            secondaryOperand = double.Parse(txtDisplay.Text);
+            switch (mathOperator)
+            {
+                case "+":
+                    calculationResult = operationHandler.PerformAddition(primaryOperand, secondaryOperand);
+                    break;
+                case "-":
+                    calculationResult = operationHandler.PerformSubtraction(primaryOperand, secondaryOperand);
+                    break;
+                case "*":
+                    calculationResult = operationHandler.PerformMultiplication(primaryOperand, secondaryOperand);
+                    break;
+                case "/":
+                    calculationResult = operationHandler.PerformDivision(primaryOperand, secondaryOperand);
+                    break;
+            }
+            txtHistory.Text += txtDisplay.Text;
+            txtDisplay.Text = calculationResult.ToString();
+            isFreshInput = true;
+        }
+
+        private void btnClearAll_Click(object sender, EventArgs e)
+        {
+            txtDisplay.Clear();
+            txtHistory.Clear();
+        }
+
+        private void btnBackspace_Click(object sender, EventArgs e)
+        {
+            if (txtDisplay.Text.Length > 1)
+                txtDisplay.Text = txtDisplay.Text.Substring(0, txtDisplay.Text.Length - 1);
+            else
+                txtDisplay.Text = "0";
+        }
+
+        private void btnSquareRoot_Click(object sender, EventArgs e)
+        {
+            double value = double.Parse(txtDisplay.Text);
+            txtDisplay.Text = Math.Sqrt(value).ToString();
+            txtHistory.Text += $"√({value})";
+            isFreshInput = true;
+        }
+
+        private void btnSquare_Click(object sender, EventArgs e)
+        {
+            double value = double.Parse(txtDisplay.Text);
+            txtDisplay.Text = Math.Pow(value, 2).ToString();
+            txtHistory.Text += $"{value}²";
+            isFreshInput = true;
+        }
+
+        private void ApplyTrigFunction(Func<double, double> trigFunction, string functionName)
+        {
+            double value = double.Parse(txtDisplay.Text);
+            txtDisplay.Text = trigFunction(value).ToString();
+            txtHistory.Text += $"{functionName}({value})";
+            isFreshInput = true;
+        }
+
+        private void btnSin_Click(object sender, EventArgs e) => ApplyTrigFunction(Math.Sin, "sin");
+        private void btnCos_Click(object sender, EventArgs e) => ApplyTrigFunction(Math.Cos, "cos");
+        private void btnTan_Click(object sender, EventArgs e) => ApplyTrigFunction(Math.Tan, "tan");
+    }
+}
