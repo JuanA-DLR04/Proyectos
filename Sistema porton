@@ -1,0 +1,196 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+// Definiciones para los estados y valores booleanos
+#define STATE_INIT      0
+#define STATE_CLOSED    1
+#define STATE_OPEN      2
+#define STATE_CLOSING   3
+#define STATE_OPENING   4
+#define STATE_FAULT     5
+#define TRUE            1
+#define FALSE           0
+#define MAX_RUNTIME     180
+#define ERROR_NONE      0
+#define ERROR_LIMIT     1
+#define ERROR_TIMEOUT   2
+
+// Variables de estado globales
+int NEXT_STATE = STATE_INIT;
+int CURRENT_STATE = STATE_INIT;
+int PREV_STATE = STATE_INIT;
+
+// Estructura para gestionar los datos del sistema
+struct SYSTEM_STATUS {
+    unsigned int LIMIT_CLOSED:1;
+    unsigned int LIMIT_OPEN:1;
+    unsigned int CMD_TOGGLE:1;
+    unsigned int MOTOR_OPEN:1;
+    unsigned int MOTOR_CLOSE:1;
+    unsigned int RUNTIME_COUNT;
+    unsigned int LED_OPENING:1;
+    unsigned int LED_CLOSING:1;
+    unsigned int LED_ERROR:1;
+    unsigned int ERROR_CODE;
+    unsigned int DATA_VALID:1;
+} system_status;
+
+// Declaración de funciones de manejo de estados
+int StateHandler_Init(void);
+int StateHandler_Open(void);
+int StateHandler_Opening(void);
+int StateHandler_Closed(void);
+int StateHandler_Closing(void);
+int StateHandler_Fault(void);
+
+int main() {
+    for (;;) {
+        switch (NEXT_STATE) {
+            case STATE_INIT:
+                NEXT_STATE = StateHandler_Init();
+                break;
+            case STATE_OPEN:
+                NEXT_STATE = StateHandler_Open();
+                break;
+            case STATE_OPENING:
+                NEXT_STATE = StateHandler_Opening();
+                break;
+            case STATE_CLOSED:
+                NEXT_STATE = StateHandler_Closed();
+                break;
+            case STATE_CLOSING:
+                NEXT_STATE = StateHandler_Closing();
+                break;
+            case STATE_FAULT:
+                NEXT_STATE = StateHandler_Fault();
+                break;
+        }
+    }
+    return 0;
+}
+
+int StateHandler_Init(void) {
+    PREV_STATE = CURRENT_STATE;
+    CURRENT_STATE = STATE_INIT;
+
+    system_status.MOTOR_OPEN = FALSE;
+    system_status.MOTOR_CLOSE = FALSE;
+    system_status.CMD_TOGGLE = FALSE;
+    system_status.LED_OPENING = FALSE;
+    system_status.LED_CLOSING = FALSE;
+    system_status.LED_ERROR = FALSE;
+    system_status.ERROR_CODE = ERROR_NONE;
+    system_status.RUNTIME_COUNT = 0;
+    system_status.DATA_VALID = FALSE;
+
+    while (!system_status.DATA_VALID) {}
+
+    for (;;) {
+        if (system_status.LIMIT_CLOSED && !system_status.LIMIT_OPEN) {
+            return STATE_CLOSED;
+        } else if (!system_status.LIMIT_CLOSED && !system_status.LIMIT_OPEN) {
+            return STATE_CLOSING;
+        } else if (system_status.LIMIT_CLOSED && system_status.LIMIT_OPEN) {
+            system_status.ERROR_CODE = ERROR_LIMIT;
+            return STATE_FAULT;
+        }
+    }
+}
+
+int StateHandler_Open(void) {
+    PREV_STATE = CURRENT_STATE;
+    CURRENT_STATE = STATE_OPEN;
+
+    system_status.MOTOR_OPEN = FALSE;
+    system_status.CMD_TOGGLE = FALSE;
+    system_status.LED_OPENING = FALSE;
+    system_status.LED_CLOSING = FALSE;
+    system_status.LED_ERROR = FALSE;
+
+    for (;;) {
+        if (system_status.CMD_TOGGLE) {
+            system_status.CMD_TOGGLE = FALSE;
+            return STATE_CLOSING;
+        }
+    }
+}
+
+int StateHandler_Opening(void) {
+    PREV_STATE = CURRENT_STATE;
+    CURRENT_STATE = STATE_OPENING;
+
+    system_status.MOTOR_OPEN = TRUE;
+    system_status.RUNTIME_COUNT = 0;
+    system_status.LED_OPENING = TRUE;
+    system_status.LED_CLOSING = FALSE;
+    system_status.LED_ERROR = FALSE;
+
+    for (;;) {
+        if (system_status.LIMIT_OPEN) {
+            return STATE_OPEN;
+        } else if (system_status.RUNTIME_COUNT > MAX_RUNTIME) {
+            system_status.ERROR_CODE = ERROR_TIMEOUT;
+            return STATE_FAULT;
+        }
+    }
+}
+
+int StateHandler_Closed(void) {
+    PREV_STATE = CURRENT_STATE;
+    CURRENT_STATE = STATE_CLOSED;
+
+    system_status.MOTOR_CLOSE = FALSE;
+    system_status.CMD_TOGGLE = FALSE;
+    system_status.LED_OPENING = FALSE;
+    system_status.LED_CLOSING = FALSE;
+    system_status.LED_ERROR = FALSE;
+
+    for (;;) {
+        if (system_status.CMD_TOGGLE) {
+            system_status.CMD_TOGGLE = FALSE;
+            return STATE_OPENING;
+        }
+    }
+}
+
+int StateHandler_Closing(void) {
+    PREV_STATE = CURRENT_STATE;
+    CURRENT_STATE = STATE_CLOSING;
+
+    system_status.MOTOR_CLOSE = TRUE;
+    system_status.RUNTIME_COUNT = 0;
+    system_status.LED_OPENING = FALSE;
+    system_status.LED_CLOSING = TRUE;
+    system_status.LED_ERROR = FALSE;
+
+    for (;;) {
+        if (system_status.LIMIT_CLOSED) {
+            return STATE_CLOSED;
+        } else if (system_status.RUNTIME_COUNT > MAX_RUNTIME) {
+            system_status.ERROR_CODE = ERROR_TIMEOUT;
+            return STATE_FAULT;
+        }
+    }
+}
+
+int StateHandler_Fault(void) {
+    PREV_STATE = CURRENT_STATE;
+    CURRENT_STATE = STATE_FAULT;
+
+    system_status.MOTOR_CLOSE = FALSE;
+    system_status.MOTOR_OPEN = FALSE;
+    system_status.CMD_TOGGLE = FALSE;
+    system_status.LED_OPENING = FALSE;
+    system_status.LED_CLOSING = FALSE;
+    system_status.LED_ERROR = TRUE;
+
+    printf("ERROR DETECTED. CODE: %d\n", system_status.ERROR_CODE);
+    
+    for (;;) {
+        if (system_status.CMD_TOGGLE) {
+            system_status.CMD_TOGGLE = FALSE;
+            system_status.ERROR_CODE = ERROR_NONE;
+            return PREV_STATE == STATE_OPENING ? STATE_OPENING : STATE_CLOSING;
+        }
+    }
+}
